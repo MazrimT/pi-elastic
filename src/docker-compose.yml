@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: es01
+    restart: always
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    ports:
+      - "9200:9200"
+    volumes:
+      - ./elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - /home/elasticsearch:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: kib01
+    restart: always
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=https://es01:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+      - SERVER_SSL_ENABLED=false
+      - KIBANA_ENCRYPTION_KEY=${KIBANA_ENCRYPTION_KEY}
+      - KIBANA_SAVED_OBJECTS_KEY=${KIBANA_SAVED_OBJECTS_KEY}
+      - KIBANA_REPORTING_KEY=${KIBANA_REPORTING_KEY}
+    ports:
+      - "5601:5601"
+    volumes:
+      - /home/kibana:/usr/share/kibana/config
+      - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+      - ./kibana-entrypoint.sh:/usr/local/bin/kibana-entrypoint.sh
+    command: >
+      bash -c "
+      /bin/bash /usr/local/bin/kibana-entrypoint.sh;
+      echo 'Setting Kibana encryption keys...';
+      echo 'xpack.security.encryptionKey: ${KIBANA_ENCRYPTION_KEY}' >> /usr/share/kibana/config/kibana.yml;
+      echo 'xpack.encryptedSavedObjects.encryptionKey: ${KIBANA_SAVED_OBJECTS_KEY}' >> /usr/share/kibana/config/kibana.yml;
+      echo 'xpack.reporting.encryptionKey: ${KIBANA_REPORTING_KEY}' >> /usr/share/kibana/config/kibana.yml;
+      /usr/local/bin/kibana-docker;
+      "
+
+
+    networks:
+      - elastic
+
+networks:
+  elastic:
+    driver: bridge
